@@ -7,11 +7,12 @@ layout(location=2) in vec3 normal;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
-
+uniform mat4 lightSpaceMatrix;
 
 out vec2 TexCoord;
 out vec3 normalWorld;
 out vec3 vertexPositionWorld;
+out vec4 FragPosLightSpace;
 
 void main()
 {
@@ -27,5 +28,6 @@ void main()
     
     vertexPositionWorld = newPosition.xyz;
     
+    FragPosLightSpace = lightSpaceMatrix * newPosition;
 }
 
