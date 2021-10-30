@@ -28,6 +28,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		B00A0CDB2728EDD700797F94 /* ShadowVertexShader.glsl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ShadowVertexShader.glsl; sourceTree = "<group>"; };
+		B00A0CDC2728EDD700797F94 /* ShadowFragmentShader.glsl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ShadowFragmentShader.glsl; sourceTree = "<group>"; };
 		B046405027225B5F00939B7F /* hw2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hw2; sourceTree = BUILT_PRODUCTS_DIR; };
 		B046405327225B5F00939B7F /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		B046405B27225B9700939B7F /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
@@ -77,6 +79,8 @@
 		B046405227225B5F00939B7F /* hw2 */ = {
 			isa = PBXGroup;
 			children = (
+				B00A0CDC2728EDD700797F94 /* ShadowFragmentShader.glsl */,
+				B00A0CDB2728EDD700797F94 /* ShadowVertexShader.glsl */,
 				B046406727225CB200939B7F /* Dependencies */,
 				B046406327225CB200939B7F /* resources */,
 				B046406227225CB200939B7F /* Shader.cpp */,

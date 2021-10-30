@@ -23,7 +23,7 @@ const int SCR_HEIGHT = 600;
 
 GLfloat lastX = SCR_WIDTH / 2.0;
 GLfloat lastY = SCR_HEIGHT / 2.0;
-GLfloat fov = 45.0f;
+GLfloat fov = 60.0f;
 glm::vec3 cameraPosBefore;
 
 //camera views
@@ -42,20 +42,24 @@ GLfloat delta_angle = 0.0f;
 
 //brightness
 GLfloat lightBrightness = 1;
+GLfloat pointLightBrightness = 1;
+GLfloat delta_X = 0.0f;
+glm::vec3 lightPos;
+
+GLint spotOn = 0;
 
 bool firstMouse = true;
 bool firstClick = true;
 bool mouseLeftDown = false;
-
-
-
-
+ 
 struct keyboardcontroller
 {
     int theme_penguin;
     int theme_snow;
+    int theme_cat;
+    int theme_cat2;
 };
-keyboardcontroller keyboardCtl = {0, 0};
+keyboardcontroller keyboardCtl = {0, 0, 0, 0};
 
 // struct for storing the obj file
 struct Vertex {
@@ -68,6 +72,20 @@ struct Model {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 };
+
+Model loadOBJ(const char* objPath);
+void get_OpenGL_info();
+void sendDataToOpenGL();
+void initializedGL(void);
+void RenderScene(Shader &shader);
+void setupLight(Shader shader);
+void paintGL(void);
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+void cursor_position_callback(GLFWwindow* window, double x, double y);
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void do_movement();
 
 Model loadOBJ(const char* objPath)
 {
@@ -192,14 +210,40 @@ void get_OpenGL_info()
 }
 
 Shader shader;
+Shader simpleDepthShader;
 //Objects
-GLuint snowVAO, snowVBO,snowEBO;
+GLuint snowVAO, snowVBO, snowEBO;
 Model snowObj;
 Texture snowTexture[2];
 
-GLuint penguinVAO, penguinVBO,penguinEBO;
+GLuint penguinVAO, penguinVBO, penguinEBO;
 Model penguinObj;
 Texture penguinTexture[2];
+
+GLuint catVAO, catVBO, catEBO;
+Model catObj;
+Texture catTexture[2];
+
+GLuint cat2VAO, cat2VBO, cat2EBO;
+Model cat2Obj;
+Texture cat2Texture[2];
+
+GLuint chairVAO, chairVBO, chairEBO;
+Model chairObj;
+Texture chairTexture;
+
+GLuint lightVAO, lightVBO, lightEBO;
+Model lightObj;
+Texture lightTexture;
+
+GLuint grassVAO, grassVBO, grassEBO;
+Model grassObj;
+Texture grassTexture;
+
+
+const GLuint SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
+GLuint depthMapFBO;
+GLuint depthMap;
 
 
 void sendDataToOpenGL()
@@ -266,6 +310,173 @@ void sendDataToOpenGL()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     
+    //load the cat data from the OBJ file
+    catObj = loadOBJ("./resources/cat/cat.obj");
+    //load cat textures
+    catTexture[0].setupTexture("resources/cat/cat_01.jpg");
+    catTexture[1].setupTexture("resources/cat/cat_02.jpg");
+    //vertex array object
+    glGenVertexArrays(1, &catVAO);
+    glBindVertexArray(catVAO);
+    
+    //vertex buffer object
+    glGenBuffers(1, &catVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, catVBO);
+    glBufferData(GL_ARRAY_BUFFER, catObj.vertices.size() * sizeof(Vertex), &catObj.vertices[0], GL_STATIC_DRAW);
+    //vertex position
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+    //vertex texture coordinate
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
+    //vertex normal
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+    //index buffer
+    glGenBuffers(1, &catEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, catEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, catObj.indices.size() * sizeof(unsigned int), &catObj.indices[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    
+    //load the cat2 data from the OBJ file
+    cat2Obj = loadOBJ("./resources/cat/cat2.obj");
+    //load cat2 textures
+    cat2Texture[0].setupTexture("resources/cat/cat2_01.jpg");
+    cat2Texture[1].setupTexture("resources/cat/cat2_02.jpg");
+    //vertex array object
+    glGenVertexArrays(1, &cat2VAO);
+    glBindVertexArray(cat2VAO);
+    
+    //vertex buffer object
+    glGenBuffers(1, &cat2VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, cat2VBO);
+    glBufferData(GL_ARRAY_BUFFER, cat2Obj.vertices.size() * sizeof(Vertex), &cat2Obj.vertices[0], GL_STATIC_DRAW);
+    //vertex position
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+    //vertex texture coordinate
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
+    //vertex normal
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+    //index buffer
+    glGenBuffers(1, &cat2EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cat2EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, cat2Obj.indices.size() * sizeof(unsigned int), &cat2Obj.indices[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    
+    //load the chair data from the OBJ file
+    chairObj = loadOBJ("./resources/others/chair.obj");
+    //load snow textures
+    chairTexture.setupTexture("resources/others/wood.jpg");
+    //vertex array object
+    glGenVertexArrays(1, &chairVAO);
+    glBindVertexArray(chairVAO);
+    
+    //vertex buffer object
+    glGenBuffers(1, &chairVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, chairVBO);
+    glBufferData(GL_ARRAY_BUFFER, chairObj.vertices.size() * sizeof(Vertex), &chairObj.vertices[0], GL_STATIC_DRAW);
+    //vertex position
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+    //vertex texture coordinate
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
+    //vertex normal
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+    //index buffer
+    glGenBuffers(1, &chairEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chairEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, chairObj.indices.size() * sizeof(unsigned int), &chairObj.indices[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    
+    //load the light data from the OBJ file
+    lightObj = loadOBJ("./resources/others/light.obj");
+    //load snow textures
+    lightTexture.setupTexture("resources/others/light.jpg");
+    //vertex array object
+    glGenVertexArrays(1, &lightVAO);
+    glBindVertexArray(lightVAO);
+    
+    //vertex buffer object
+    glGenBuffers(1, &lightVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, lightVBO);
+    glBufferData(GL_ARRAY_BUFFER, lightObj.vertices.size() * sizeof(Vertex), &lightObj.vertices[0], GL_STATIC_DRAW);
+    //vertex position
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+    //vertex texture coordinate
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
+    //vertex normal
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+    //index buffer
+    glGenBuffers(1, &lightEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lightEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, lightObj.indices.size() * sizeof(unsigned int), &lightObj.indices[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    
+    //load the grass data from the OBJ file
+    grassObj = loadOBJ("./resources/others/grass.obj");
+    //load snow textures
+    grassTexture.setupTexture("resources/others/grass.jpg");
+    //vertex array object
+    glGenVertexArrays(1, &grassVAO);
+    glBindVertexArray(grassVAO);
+    
+    //vertex buffer object
+    glGenBuffers(1, &grassVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, grassVBO);
+    glBufferData(GL_ARRAY_BUFFER, grassObj.vertices.size() * sizeof(Vertex), &grassObj.vertices[0], GL_STATIC_DRAW);
+    //vertex position
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+    //vertex texture coordinate
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
+    //vertex normal
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+    //index buffer
+    glGenBuffers(1, &grassEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grassEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, grassObj.indices.size() * sizeof(unsigned int), &grassObj.indices[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+
+    // Configure depth map FBO
+    glGenFramebuffers(1, &depthMapFBO);
+    glGenTextures(1, &depthMap);
+    glBindTexture(GL_TEXTURE_2D, depthMap);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "FrameBuffer does not complete!" << std::endl;
+    else
+        std::cout << "\nFrameBuffer complete!\n" << std::endl;
+
 }
 
 void initializedGL(void) //run only once
@@ -280,61 +491,219 @@ void initializedGL(void) //run only once
     //TODO: set up the camera parameters
     //TODO: set up the vertex shader and fragment shader
     shader.setupShader("VertexShaderCode.glsl", "FragmentShaderCode.glsl");
+    simpleDepthShader.setupShader("ShadowVertexShader.glsl", "ShadowFragmentShader.glsl");
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 }
 
-void setupLight(Shader shader)
+void drawscene(Shader sshader)
+{
+    // Floor
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::translate(model, glm::vec3(0.0f, 0.3f, 0.0f));
+    sshader.setMat4("model", model);
+    glBindVertexArray(snowVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, snowEBO);
+    glDrawElements(GL_TRIANGLES, snowObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(0.0f, -0.7f, delta_Z-0.4f));
+    model = glm::scale(model, glm::vec3(0.8f, 0.8f, 0.8f));
+    model = glm::rotate(model, glm::radians(delta_angle+0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    sshader.setMat4("model", model);
+    glBindVertexArray(penguinVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, penguinEBO);
+    glDrawElements(GL_TRIANGLES, penguinObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(0.8f, -0.7f, 0.0f));
+    model = glm::scale(model, glm::vec3(0.015f, 0.015f, 0.015f));
+    model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+    glBindVertexArray(catVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, catEBO);
+    glDrawElements(GL_TRIANGLES, catObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(-0.8f, -0.7f, 0.1f));
+    model = glm::scale(model, glm::vec3(0.03f, 0.03f, 0.03f));
+    // model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+    glBindVertexArray(cat2VAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cat2EBO);
+    glDrawElements(GL_TRIANGLES, cat2Obj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(-1.4f, -0.7f, -1.2f));
+    model = glm::scale(model, glm::vec3(0.05f, 0.05f, 0.05f));
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    sshader.setMat4("model", model);
+    glBindVertexArray(chairVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chairEBO);
+    glDrawElements(GL_TRIANGLES, chairObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+
+    model = glm::translate(model, glm::vec3(0.6f, -0.7f, -1.2f));
+    model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));
+    model = glm::rotate(model, glm::radians(-20.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    sshader.setMat4("model", model);
+    glBindVertexArray(lightVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lightEBO);
+    glDrawElements(GL_TRIANGLES, lightObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(0.6f, -0.7f, -1.2f));
+    model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));
+    model = glm::rotate(model, glm::radians(-20.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    sshader.setMat4("model", model);
+    glBindVertexArray(grassVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grassEBO);
+    glDrawElements(GL_TRIANGLES, grassObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(1.0f, -0.7f, -1.0f));
+    model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
+    model = glm::rotate(model, glm::radians(-60.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    sshader.setMat4("model", model);
+    glBindVertexArray(grassVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grassEBO);
+    glDrawElements(GL_TRIANGLES, grassObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(-0.5f, -0.7f, -1.4f));
+    model = glm::scale(model, glm::vec3(0.17f, 0.17f, 0.17f));
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    sshader.setMat4("model", model);
+    glBindVertexArray(grassVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grassEBO);
+    glDrawElements(GL_TRIANGLES, grassObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+
+    model = glm::translate(model, glm::vec3(-2.0f, -0.7f, -0.5f));
+    model = glm::scale(model, glm::vec3(0.13f, 0.13f, 0.13f));
+    model = glm::rotate(model, glm::radians(60.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    sshader.setMat4("model", model);
+    glBindVertexArray(grassVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grassEBO);
+    glDrawElements(GL_TRIANGLES, grassObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    sshader.setMat4("model", model);
+}
+
+void setupLight(Shader lshader)
 {
     
     //environment light
     glm::vec3 env_ambientLight = glm::vec3(0.2f, 0.2f, 0.2f);
-    shader.setVec3("env_ambientLight", env_ambientLight);
+    lshader.setVec3("env_ambientLight", env_ambientLight);
     
-    glm::vec3 env_lightDirection = glm::vec3(1.0f, 1.0f, 0.0f);
-    shader.setVec3("env_lightDirection", env_lightDirection);
+    glm::vec3 env_lightDirection = lightPos;
+    lshader.setVec3("env_lightDirection", env_lightDirection);
     
-    shader.setVec3("eyePositionWorld", cameraPos);
-    shader.setFloat("lightBrightness", lightBrightness);
+    lshader.setVec3("eyePositionWorld", cameraPos);
+    lshader.setFloat("lightBrightness", lightBrightness);
     
     //point light 1
     glm::vec3 point1_ambientLight = glm::vec3(0.0f, 0.1f, 0.0f);
-    shader.setVec3("point1_ambientLight", point1_ambientLight);
+    lshader.setVec3("point1_ambientLight", point1_ambientLight);
     glm::vec3 point1_lightPos = glm::vec3(-0.6f, -0.5f, -0.8f);
-    shader.setVec3("point1_lightPos", point1_lightPos);
+    lshader.setVec3("point1_lightPos", point1_lightPos);
     
     //point light 2
     glm::vec3 point2_ambientLight = glm::vec3(0.1f, 0.0f, 0.0f);
-    shader.setVec3("point2_ambientLight", point2_ambientLight);
+    lshader.setVec3("point2_ambientLight", point2_ambientLight);
     glm::vec3 point2_lightPos = glm::vec3(0.6f, -0.5f, 0.6f);
-    shader.setVec3("point2_lightPos", point2_lightPos);
+    lshader.setVec3("point2_lightPos", point2_lightPos);
     
     //point light 3
     glm::vec3 point3_ambientLight = glm::vec3(0.0f, 0.0f, 0.1f);
-    shader.setVec3("point3_ambientLight", point3_ambientLight);
+    lshader.setVec3("point3_ambientLight", point3_ambientLight);
     glm::vec3 point3_lightPos = glm::vec3(-0.6f, -0.5f, 0.6f);
-    shader.setVec3("point3_lightPos", point3_lightPos);
+    lshader.setVec3("point3_lightPos", point3_lightPos);
     
     //point light 4
     glm::vec3 point4_ambientLight = glm::vec3(0.1f, 0.1f, 0.0f);
-    shader.setVec3("point4_ambientLight", point4_ambientLight);
+    lshader.setVec3("point4_ambientLight", point4_ambientLight);
     glm::vec3 point4_lightPos = glm::vec3(0.6f, -0.5f, -0.8f);
-    shader.setVec3("point4_lightPos", point4_lightPos);
+    lshader.setVec3("point4_lightPos", point4_lightPos);
     
+    //point light 5
+    glm::vec3 point5_ambientLight = glm::vec3(0.5f, 0.5f, 0.5f);
+    lshader.setVec3("point5_ambientLight", point5_ambientLight);
+    glm::vec3 point5_lightPos = glm::vec3(0.0f, 2.0f, 0.0f);
+    lshader.setVec3("point5_lightPos", point5_lightPos);
+    
+    lshader.setFloat("pointLightBrightness", pointLightBrightness);
+    
+    //spot light
+    glm::vec3 spot_ambientLight = glm::vec3(0.2f, 0.2f, 0.0f);
+    lshader.setVec3("spot_ambientLight", spot_ambientLight);
+    lshader.setVec3("spotPos", cameraPos);
+    lshader.setVec3("spotDir", cameraFront);
+    lshader.setFloat("spotCutOff", glm::cos(glm::radians(30.0f)));
+    lshader.setFloat("spotOuterCutOff", glm::cos(glm::radians(20.0f)));
+    
+    lshader.setInt("spotOn", spotOn);
     
 }
 
 void paintGL(void)  //always run
 {
-    glClearColor(1.0f, 1.0f, 1.0f, 0.5f); //specify the background color, this is just an example
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
     //TODO:
     //Set lighting information, such as position and color of lighting source
     //Set transformation matrix
     //Bind different textures
-    shader.use();
+    
+    lightPos = glm::vec3(delta_X + 3.0f, 10.0f,  0.0f);
+    
+    glm::mat4 lightProjection, lightView;
+    glm::mat4 lightSpaceMatrix;
+    GLfloat near_plane = 0.0f, far_plane = 25.0f;
+    lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+    lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    lightSpaceMatrix = lightProjection * lightView;
+    // - now render scene from light's point of view
+    
 
+    glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glCullFace(GL_FRONT);
+    glActiveTexture(GL_TEXTURE0);
+    simpleDepthShader.use();
+    simpleDepthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+    drawscene(simpleDepthShader);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    glClearColor(0.5f*lightBrightness, 0.5f*lightBrightness, 0.5f*lightBrightness, 0.5f); //specify the background color, this is just an example
+    glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glCullFace(GL_BACK);
+
+    shader.use();
+    
     //light
     setupLight(shader);
     
@@ -349,6 +718,13 @@ void paintGL(void)  //always run
     shader.setMat4("model", model);
     shader.setMat4("view", view);
     shader.setMat4("projection", projection);
+    shader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+    shader.setInt("Texture", 0);
+    shader.setInt("shadowMap", 1);
+    shader.setVec3("lightPos", lightPos);
+    
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, depthMap);
     
     model = glm::translate(model, glm::vec3(0.0f, 0.3f, 0.0f));
     shader.setMat4("model", model);
@@ -360,7 +736,8 @@ void paintGL(void)  //always run
     model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     shader.setMat4("model", model);
     
-    model = glm::translate(model, glm::vec3(0.0f, -0.7f, delta_Z+0.0f));
+    model = glm::translate(model, glm::vec3(0.0f, -0.7f, delta_Z - 0.4f));
+    model = glm::scale(model, glm::vec3(0.8f, 0.8f, 0.8f));
     model = glm::rotate(model, glm::radians(delta_angle+0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     shader.setMat4("model", model);
     penguinTexture[keyboardCtl.theme_penguin].bind(0);
@@ -369,11 +746,113 @@ void paintGL(void)  //always run
     glDrawElements(GL_TRIANGLES, penguinObj.indices.size(), GL_UNSIGNED_INT, 0);
     model = glm::mat4(1.0f);
     model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(0.8f, -0.7f, 0.0f));
+    model = glm::scale(model, glm::vec3(0.015f, 0.015f, 0.015f));
+    model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    catTexture[keyboardCtl.theme_cat].bind(0);
+    glBindVertexArray(catVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, catEBO);
+    glDrawElements(GL_TRIANGLES, catObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(-0.8f, -0.7f, 0.1f));
+    model = glm::scale(model, glm::vec3(0.03f, 0.03f, 0.03f));
+    // model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    cat2Texture[keyboardCtl.theme_cat2].bind(0);
+    glBindVertexArray(cat2VAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cat2EBO);
+    glDrawElements(GL_TRIANGLES, cat2Obj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(-1.4f, -0.7f, -1.2f));
+    model = glm::scale(model, glm::vec3(0.05f, 0.05f, 0.05f));
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    shader.setMat4("model", model);
+    chairTexture.bind(0);
+    glBindVertexArray(chairVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chairEBO);
+    glDrawElements(GL_TRIANGLES, chairObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+
+    model = glm::translate(model, glm::vec3(0.6f, -0.7f, -1.2f));
+    model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));
+    model = glm::rotate(model, glm::radians(-20.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    shader.setMat4("model", model);
+    lightTexture.bind(0);
+    glBindVertexArray(lightVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lightEBO);
+    glDrawElements(GL_TRIANGLES, lightObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(0.6f, -0.7f, -1.2f));
+    model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));
+    model = glm::rotate(model, glm::radians(-20.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    shader.setMat4("model", model);
+    grassTexture.bind(0);
+    glBindVertexArray(grassVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grassEBO);
+    glDrawElements(GL_TRIANGLES, grassObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(1.0f, -0.7f, -1.0f));
+    model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
+    model = glm::rotate(model, glm::radians(-60.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    shader.setMat4("model", model);
+    grassTexture.bind(0);
+    glBindVertexArray(grassVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grassEBO);
+    glDrawElements(GL_TRIANGLES, grassObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    
+    model = glm::translate(model, glm::vec3(-0.5f, -0.7f, -1.4f));
+    model = glm::scale(model, glm::vec3(0.17f, 0.17f, 0.17f));
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    shader.setMat4("model", model);
+    grassTexture.bind(0);
+    glBindVertexArray(grassVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grassEBO);
+    glDrawElements(GL_TRIANGLES, grassObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+
+    model = glm::translate(model, glm::vec3(-2.0f, -0.7f, -0.5f));
+    model = glm::scale(model, glm::vec3(0.13f, 0.13f, 0.13f));
+    model = glm::rotate(model, glm::radians(60.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    shader.setMat4("model", model);
+    grassTexture.bind(0);
+    glBindVertexArray(grassVAO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grassEBO);
+    glDrawElements(GL_TRIANGLES, grassObj.indices.size(), GL_UNSIGNED_INT, 0);
+    model = glm::mat4(1.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    
+    
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
+    std::cout << "yes" <<std::endl;
+    std::cout << width <<std::endl;
+    
 }
 
 
@@ -492,6 +971,26 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         keyboardCtl.theme_snow = 0;
     if(key == GLFW_KEY_4 && action == GLFW_PRESS)
         keyboardCtl.theme_snow = 1;
+    
+    if(key == GLFW_KEY_5 && action == GLFW_PRESS)
+        keyboardCtl.theme_cat = 0;
+    if(key == GLFW_KEY_6 && action == GLFW_PRESS)
+        keyboardCtl.theme_cat = 1;
+
+    if(key == GLFW_KEY_7 && action == GLFW_PRESS)
+        keyboardCtl.theme_cat2 = 0;
+    if(key == GLFW_KEY_8 && action == GLFW_PRESS)
+        keyboardCtl.theme_cat2 = 1;
+    if(key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+    {
+        if(spotOn == 0)
+            spotOn = 1;
+        else
+            spotOn = 0;
+    }
+
+    
+
 
     if (key >= 0 && key < 1024)
     {
@@ -527,6 +1026,20 @@ void do_movement()
     if(keys[GLFW_KEY_S])
         if(lightBrightness > 0)
             lightBrightness -= 1 * Speed;
+    
+    if(keys[GLFW_KEY_E])
+        if(pointLightBrightness < 2)
+            pointLightBrightness += 1 * Speed;
+    if(keys[GLFW_KEY_Q])
+        if(pointLightBrightness > 0)
+            pointLightBrightness -= 1 * Speed;
+    
+    if(keys[GLFW_KEY_A])
+        if(delta_X > -10.0f)
+            delta_X -= 10 * Speed;
+    if(keys[GLFW_KEY_D])
+        if(delta_X < 10.0f)
+            delta_X += 10 * Speed;
 }
 
 int main(int argc, char* argv[])

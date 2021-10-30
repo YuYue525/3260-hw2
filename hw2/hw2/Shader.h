@@ -19,7 +19,7 @@ public:
 	void setInt(const std::string& name, int value) const;
 
 private:
-	unsigned int ID = 0;
+    unsigned int ID = 0;
 
 	std::string readShaderCode(const char* fileName) const;
 	bool checkShaderStatus(GLuint shaderID) const;
