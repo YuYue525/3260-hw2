@@ -1,0 +1,11 @@
+#version 430
+in layout (location = 0) vec3 position;
+
+uniform mat4 lightSpaceMatrix;
+uniform mat4 model;
+
+void main()
+{
+    gl_Position = lightSpaceMatrix * model * vec4(position, 1.0f);
+}
+
